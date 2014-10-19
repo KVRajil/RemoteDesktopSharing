@@ -1,0 +1,112 @@
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package com.client.conn;
+
+import java.awt.AWTException;
+import java.awt.Dimension;
+import java.awt.Image;
+import java.awt.Rectangle;
+import java.awt.Robot;
+import java.awt.Toolkit;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.ImageIcon;
+
+/**
+ *
+ * @author Administrator
+ */
+public class DesktopImageManger implements Runnable {
+
+    public static boolean scaledImage = false;
+    public static long delay = 100;
+    static double percentage = 0;
+    private ConnectionManager connectionManager = null;
+    double newImageWidth;
+    double newImageHeight;
+
+    public DesktopImageManger(ConnectionManager connectionManager) {
+        this.connectionManager = connectionManager;
+    }
+
+    public void run() {
+        Image currentImage = null;
+        Image nextImage = null;
+        ImageComparison comparison = new ImageComparison();
+        while (true) {
+            try {
+                nextImage = getScreenShot();
+                if (comparison.compareImge(currentImage, nextImage, percentage)) {
+                    //  System.out.println("True");
+                } else {
+                    //System.out.println("False");
+                    connectionManager.sendDataToServer(new ImageIcon(nextImage));
+                }
+                currentImage = nextImage;
+                long currentTime = 0;
+                while (currentTime < delay) {
+                    System.out.println("current time : " + currentTime);
+                    System.out.println("Delay : " + delay);
+                    Thread.sleep(100);
+                    currentTime += 1000;
+                }
+
+            } catch (IOException ex) {
+                Logger.getLogger(DesktopImageManger.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(DesktopImageManger.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    private Image getScreenShot() {
+        try {
+            Toolkit toolkit = Toolkit.getDefaultToolkit();
+            Dimension screenSize = toolkit.getScreenSize();
+            Rectangle screenRect = new Rectangle(0, 0, screenSize.width, screenSize.height);
+            // create screen shot
+            Robot robot = new Robot();
+            Image image = robot.createScreenCapture(screenRect);
+            if (scaledImage) {
+                int imgWidth = image.getWidth(null);
+                int imgHeight = image.getHeight(null);
+                int labelWidth = 148;
+                int labelHeight = 83;
+                getScalingFactor(imgWidth, imgHeight, labelWidth, labelHeight);
+                image = image.getScaledInstance((int) newImageWidth, (int) newImageHeight, Image.SCALE_SMOOTH);
+            }
+            return image;
+        } catch (AWTException ex) {
+            Logger.getLogger(DesktopImageManger.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
+    }
+
+    private void getScalingFactor(int imgWidth, int imgHeight, int labelWidth,
+            int labelHeight) {
+        int selectedSide = 0;
+        int difference = 0;
+
+        if (imgWidth > labelWidth || imgHeight > labelHeight) {
+            if (imgWidth > imgHeight) {
+                selectedSide = imgWidth;
+                difference = imgWidth - labelWidth;
+                float percentage = ((float) difference / (float) imgWidth) * 100;
+
+                newImageHeight = imgHeight - (imgHeight * (percentage / 100));
+                newImageWidth = imgWidth - difference;
+            } else {
+                selectedSide = imgHeight;
+                difference = imgHeight - labelHeight;
+                float percentage = ((float) difference / (float) imgHeight) * 100;
+
+                newImageWidth = imgWidth - (imgWidth * (percentage / 100));
+                newImageHeight = imgHeight - difference;
+            }
+        }
+    }
+}
